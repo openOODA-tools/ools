@@ -49,10 +49,40 @@ pub fn parse_stamp_mtime(stamp: String) -> Int {
 pub fn probe_is_symlink(fs: &FsReadCap, path: String) -> Bool {
     let link_sz: Int = fs_file_size(fs, path);
     if link_sz < 0 { return false; }
-    let target_sz: Int = fs_file_size(fs, path + "/.");
-    if target_sz >= 0 && link_sz != target_sz {
+
+    if fs_is_dir(fs, path) {
+        let target_sz: Int = fs_file_size(fs, path + "/.");
+        if target_sz >= 0 && link_sz != target_sz {
+            return true;
+        }
+        let stamp: String = oo_file_stamp(fs, path);
+        let stamp_sz: Int = parse_stamp_size(stamp);
+        if stamp_sz != link_sz {
+            return true;
+        }
+        return false;
+    }
+
+    let stamp: String = oo_file_stamp(fs, path);
+    let stamp_sz: Int = parse_stamp_size(stamp);
+    let mtime: Int = parse_stamp_mtime(stamp);
+    if stamp_sz == 0 && mtime == 0 {
+        let r: Result[String, String] = read_file(fs, path);
+        if !r.is_ok() {
+            return true;
+        }
+        return false;
+    }
+
+    if link_sz != stamp_sz {
         return true;
     }
+
+    let r: Result[String, String] = read_file(fs, path);
+    if !r.is_ok() {
+        return true;
+    }
+
     return false;
 }
 
@@ -60,10 +90,14 @@ pub fn stat_path_entry(fs: &FsReadCap, full_path: String, name: String) -> DirEn
     let is_dir: Bool = fs_is_dir(fs, full_path);
     let is_sym: Bool = probe_is_symlink(fs, full_path);
     let stamp: String = oo_file_stamp(fs, full_path);
-    let sz: Int = parse_stamp_size(stamp);
+    let stamp_sz: Int = parse_stamp_size(stamp);
     let mtime: Int = parse_stamp_mtime(stamp);
-    let kind: String = classify_entry_kind(name, is_dir, is_sym);
-    let mode: Int = if is_dir { 493 } else { 420 };
+    let link_sz: Int = fs_file_size(fs, full_path);
+    let is_broken: Bool = is_sym && (stamp_sz == 0 && mtime == 0);
+    let sz: Int = if is_sym { link_sz } else { stamp_sz };
+    let kind: String = classify_entry_kind(name, is_dir && !is_sym, is_sym);
+    let mode: Int = if is_sym { 511 } else if is_dir { 493 } else { 420 };
+    let target_str: String = if is_broken { "[broken]" } else { "" };
     return new_dir_entry(
         name,
         full_path,
@@ -74,6 +108,6 @@ pub fn stat_path_entry(fs: &FsReadCap, full_path: String, name: String) -> DirEn
         "user",
         mtime,
         is_sym,
-        ""
+        target_str
     );
 }

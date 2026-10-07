@@ -15,7 +15,18 @@ import "ipc/dispatch.oo";
 pub fn handle_mcp_request(fs: &FsReadCap, req: String) -> String {
     let method: String = json_field_string(req, "method");
     let raw_id: String = json_field_raw(req, "id");
+    let jsonrpc: String = json_field_string(req, "jsonrpc");
+    if jsonrpc != "" && jsonrpc != "2.0" {
+        return build_error(raw_id, -32600, "invalid jsonrpc version");
+    }
+
     if chars_len(raw_id) == 0 {
+        if method == "exit" || method == "notifications/initialized" {
+            return "";
+        }
+        if chars_len(method) == 0 {
+            return build_error("", -32600, "invalid request");
+        }
         return "";
     }
     let id: String = raw_id;
@@ -50,31 +61,80 @@ pub fn run_mcp_server(fs: &FsReadCap) -> Int {
     let mut running: Bool = true;
     while running {
         let r: Result[String, String] = oo_read_stdin_chunk(fs, 100);
-        if !r.is_ok() {
-            running = false;
-        } else {
+        let eof: Bool = !r.is_ok();
+        if !eof {
             let chunk: String = match r { Ok(s) => s, Err(_) => "" };
             if chars_len(chunk) > 0 {
                 buf = buf + chunk;
-                let mut nl_pos: Int = str_index_of(buf, "\n");
-                while nl_pos >= 0 {
-                    let line: String = str_slice(buf, 0, nl_pos);
-                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
-                    let trimmed: String = str_trim(line);
-                    if chars_len(trimmed) > 0 {
-                        let method: String = json_field_string(trimmed, "method");
+            }
+        }
+
+        let mut consuming: Bool = true;
+        while consuming {
+            let n: Int = chars_len(buf);
+            let start: Int = skip_whitespace(buf, 0);
+            if start >= n {
+                buf = "";
+                consuming = false;
+            } else {
+                let c0: String = char_at(buf, start);
+                if c0 == "{" {
+                    let end: Int = scan_json_object_end(buf, start);
+                    if end > start {
+                        let msg: String = str_slice(buf, start, end);
+                        buf = str_slice(buf, end, chars_len(buf));
+                        let method: String = json_field_string(msg, "method");
                         if method == "exit" {
                             running = false;
+                            consuming = false;
                             break;
                         }
-                        let reply: String = handle_mcp_request(fs, trimmed);
+                        let reply: String = handle_mcp_request(fs, msg);
                         if chars_len(reply) > 0 {
                             println(reply);
                         }
+                    } else {
+                        if eof {
+                            println(build_error("", -32600, "parse error: incomplete json"));
+                            buf = "";
+                        }
+                        consuming = false;
                     }
-                    nl_pos = str_index_of(buf, "\n");
+                } else {
+                    let nl_pos: Int = str_index_of(buf, "\n");
+                    if nl_pos >= 0 {
+                        let junk: String = str_slice(buf, start, nl_pos);
+                        buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                        let tr: String = str_trim(junk);
+                        if tr == "exit" {
+                            running = false;
+                            consuming = false;
+                            break;
+                        }
+                        if chars_len(tr) > 0 {
+                            println(build_error("", -32600, "invalid request"));
+                        }
+                    } else {
+                        if eof {
+                            let tr: String = str_trim(str_slice(buf, start, chars_len(buf)));
+                            if tr == "exit" {
+                                running = false;
+                                consuming = false;
+                                break;
+                            }
+                            if chars_len(tr) > 0 {
+                                println(build_error("", -32600, "invalid request"));
+                            }
+                            buf = "";
+                        }
+                        consuming = false;
+                    }
                 }
             }
+        }
+
+        if eof {
+            running = false;
         }
     }
     return 0;

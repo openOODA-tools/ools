@@ -41,6 +41,10 @@ pub fn handle_tool_call(fs: &FsReadCap, id: String, req: String) -> String {
     let tool_name: String = json_field_string(params, "name");
     let args: String = json_field_raw(params, "arguments");
 
+    if chars_len(tool_name) == 0 {
+        return build_error(id, -32602, "missing required parameter: name");
+    }
+
     if tool_name == "list_directory" {
         let path_arg: String = json_unescape(json_field_string(args, "path"));
         let target_path: String = if chars_len(path_arg) == 0 { "." } else { path_arg };
@@ -55,6 +59,7 @@ pub fn handle_tool_call(fs: &FsReadCap, id: String, req: String) -> String {
         let sort_by: String = json_field_string(args, "sort_by");
         if sort_by == "size" { opts.sort_size = true; }
         if sort_by == "time" { opts.sort_time = true; }
+        if sort_by == "extension" { opts.sort_ext = true; }
         let detail: String = json_field_string(args, "detail_level");
 
         let entries: List[DirEntry] = scan_directory(fs, target_path, opts);

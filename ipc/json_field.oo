@@ -45,7 +45,7 @@ fn scan_balanced(json: String, start: Int) -> Int {
     return n;
 }
 
-fn skip_whitespace(json: String, start: Int) -> Int {
+pub fn skip_whitespace(json: String, start: Int) -> Int {
     let n: Int = chars_len(json);
     let mut j: Int = start;
     while j < n {
@@ -57,6 +57,31 @@ fn skip_whitespace(json: String, start: Int) -> Int {
         }
     }
     return n;
+}
+
+pub fn scan_json_object_end(buf: String, start: Int) -> Int {
+    let n: Int = chars_len(buf);
+    let mut depth: Int = 0;
+    let mut i: Int = start;
+    let mut found_open: Bool = false;
+    while i < n {
+        let c: String = char_at(buf, i);
+        if c == "\"" {
+            i = skip_string(buf, i);
+        } else {
+            if c == "{" {
+                depth = depth + 1;
+                found_open = true;
+            } else if c == "}" {
+                depth = depth - 1;
+                if depth == 0 && found_open {
+                    return i + 1;
+                }
+            }
+            i = i + 1;
+        }
+    }
+    return -1;
 }
 
 fn find_value_start(json: String, key: String) -> Int {

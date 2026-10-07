@@ -35,7 +35,7 @@ pub fn new_dir_entry(
     is_link: Bool,
     target: String
 ) -> DirEntry {
-    let hidden: Bool = chars_len(name) > 1 && char_at(name, 0) == ".";
+    let hidden: Bool = chars_len(name) > 0 && char_at(name, 0) == ".";
     return DirEntry {
         name: name,
         path: path,

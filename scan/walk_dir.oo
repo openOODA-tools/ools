@@ -23,15 +23,22 @@ fn join_subpath(base: String, name: String) -> String {
     return base + "/" + name;
 }
 
-pub fn scan_directory(cap: &FsReadCap, target_path: String, opts: LsOpts) -> List[DirEntry] {
+fn scan_dir_depth(
+    cap: &FsReadCap,
+    root: String,
+    target_path: String,
+    opts: LsOpts,
+    depth: Int
+) -> List[DirEntry] {
     let mut entries: List[DirEntry] = list_new();
 
-    if !path_exists(cap, target_path) {
+    if !path_exists(cap, target_path) || depth > 32 {
         return entries;
     }
 
     let is_dir: Bool = fs_is_dir(cap, target_path);
-    if !is_dir || opts.directory_only {
+    let is_sym: Bool = probe_is_symlink(cap, target_path);
+    if (!is_dir || is_sym) || opts.directory_only {
         let entry: DirEntry = stat_path_entry(cap, target_path, target_path);
         entries = list_push(entries, entry);
         return entries;
@@ -41,7 +48,7 @@ pub fn scan_directory(cap: &FsReadCap, target_path: String, opts: LsOpts) -> Lis
     let n: Int = list_len(raw_entries);
     let mut i: Int = 0;
 
-    if opts.all_files {
+    if opts.all_files && depth == 0 {
         let dot_entry: DirEntry = stat_path_entry(cap, join_subpath(target_path, "."), ".");
         let dotdot_entry: DirEntry = stat_path_entry(cap, join_subpath(target_path, ".."), "..");
         entries = list_push(entries, dot_entry);
@@ -61,11 +68,39 @@ pub fn scan_directory(cap: &FsReadCap, target_path: String, opts: LsOpts) -> Lis
 
         if include {
             let full_path: String = join_subpath(target_path, entry_name);
-            let entry: DirEntry = stat_path_entry(cap, full_path, entry_name);
+            let disp_name: String = if depth > 0 {
+                let prefix: String = if root == "." { "" } else { root + "/" };
+                if chars_len(prefix) > 0 && str_starts_with(full_path, prefix) {
+                    str_slice(full_path, chars_len(prefix), chars_len(full_path))
+                } else {
+                    full_path
+                }
+            } else {
+                entry_name
+            };
+
+            let entry: DirEntry = stat_path_entry(cap, full_path, disp_name);
             entries = list_push(entries, entry);
+
+            if opts.recursive && entry.kind == "directory" && !entry.is_symlink && entry_name != "." && entry_name != ".." {
+                let sub_entries: List[DirEntry] = scan_dir_depth(cap, root, full_path, opts, depth + 1);
+                let ns: Int = list_len(sub_entries);
+                let mut k: Int = 0;
+                while k < ns {
+                    entries = list_push(entries, list_get(sub_entries, k));
+                    k = k + 1;
+                }
+            }
         }
         i = i + 1;
     }
 
-    return sort_dir_entries(entries, opts.sort_time, opts.sort_size, opts.reverse);
+    if depth == 0 {
+        return sort_dir_entries(entries, opts.sort_time, opts.sort_size, opts.sort_ext, opts.reverse);
+    }
+    return entries;
+}
+
+pub fn scan_directory(cap: &FsReadCap, target_path: String, opts: LsOpts) -> List[DirEntry] {
+    return scan_dir_depth(cap, target_path, target_path, opts, 0);
 }

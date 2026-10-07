@@ -11,28 +11,52 @@
 
 import "scan/dir_entry.oo";
 
-fn char_code(c: String) -> Int {
-    if chars_len(c) != 1 { return 0; }
-    return byte_at(c, 0) & 255;
-}
-
 pub fn compare_entry_names(a: String, b: String) -> Int {
-    let na: Int = chars_len(a);
-    let nb: Int = chars_len(b);
+    let na: Int = bytes_len(a);
+    let nb: Int = bytes_len(b);
     let m: Int = if na < nb { na } else { nb };
     let mut i: Int = 0;
     while i < m {
-        let da: Int = char_code(char_at(a, i));
-        let db: Int = char_code(char_at(b, i));
-        if da != db {
-            return da - db;
+        let ba: Int = byte_at(a, i);
+        let bb: Int = byte_at(b, i);
+        if ba != bb {
+            return ba - bb;
         }
         i = i + 1;
     }
     return na - nb;
 }
 
-fn entry_should_swap(a: DirEntry, b: DirEntry, sort_time: Bool, sort_size: Bool, reverse: Bool) -> Bool {
+fn extract_extension(name: String) -> String {
+    let n: Int = chars_len(name);
+    let mut i: Int = n - 1;
+    while i > 0 {
+        if char_at(name, i) == "." {
+            return str_slice(name, i + 1, n);
+        }
+        i = i - 1;
+    }
+    return "";
+}
+
+pub fn compare_entry_extensions(a: String, b: String) -> Int {
+    let ext_a: String = extract_extension(a);
+    let ext_b: String = extract_extension(b);
+    let cmp: Int = compare_entry_names(ext_a, ext_b);
+    if cmp != 0 {
+        return cmp;
+    }
+    return compare_entry_names(a, b);
+}
+
+fn entry_should_swap(
+    a: DirEntry,
+    b: DirEntry,
+    sort_time: Bool,
+    sort_size: Bool,
+    sort_ext: Bool,
+    reverse: Bool
+) -> Bool {
     let mut cmp: Int = 0;
     if sort_time {
         if a.mod_time > b.mod_time {
@@ -50,6 +74,8 @@ fn entry_should_swap(a: DirEntry, b: DirEntry, sort_time: Bool, sort_size: Bool,
         } else {
             cmp = compare_entry_names(a.name, b.name);
         }
+    } else if sort_ext {
+        cmp = compare_entry_extensions(a.name, b.name);
     } else {
         cmp = compare_entry_names(a.name, b.name);
     }
@@ -65,6 +91,7 @@ pub fn sort_dir_entries(
     entries: List[DirEntry],
     sort_time: Bool,
     sort_size: Bool,
+    sort_ext: Bool,
     reverse: Bool
 ) -> List[DirEntry] {
     let mut arr: List[DirEntry] = entries;
@@ -75,7 +102,7 @@ pub fn sort_dir_entries(
         while j < n {
             let a: DirEntry = list_get(arr, i);
             let b: DirEntry = list_get(arr, j);
-            if entry_should_swap(a, b, sort_time, sort_size, reverse) {
+            if entry_should_swap(a, b, sort_time, sort_size, sort_ext, reverse) {
                 arr = list_set(arr, i, b);
                 arr = list_set(arr, j, a);
             }
