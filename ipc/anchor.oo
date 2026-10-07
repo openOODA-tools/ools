@@ -1,0 +1,10 @@
+// # ools IPC Anchor
+//
+// Logline: Re-exports JSON-RPC 2.0 Model Context Protocol (MCP) server for ools.
+//
+// Setup: Pure shim re-exporting the MCP stdio server subsystem.
+//
+// Beats:
+//   1. Re-export MCP stdio server entry point.
+
+import "mcp_server.oo";

@@ -1,0 +1,10 @@
+// # ools Options Anchor
+//
+// Logline: Re-exports CLI argument parsing and configuration types.
+//
+// Setup: Pure shim re-exporting options parser module.
+//
+// Beats:
+//   1. Re-export ls options module.
+
+import "ls_opts.oo";

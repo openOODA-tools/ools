@@ -1,0 +1,71 @@
+// # ools Multi-Column Grid Renderer
+//
+// Logline: Formats directory entries into optimal terminal columns based on viewport width.
+//
+// Setup: Demands entry list, terminal width, and LsOpts; returns formatted multi-column string.
+//
+// Beats:
+//   1. Calculate maximum entry name length and compute column widths.
+//   2. Determine number of rows and columns that fit within terminal width.
+//   3. Render entries into horizontal or vertical multi-column layout with colors.
+
+import "../scan/dir_entry.oo";
+import "../opts/ls_opts.oo";
+
+fn render_grid(entries: List[DirEntry], term_width: Int, opts: LsOpts) -> String {
+    let n: Int = list_len(entries);
+    if n == 0 {
+        return "";
+    }
+
+    if opts.one_per_line || term_width < 40 {
+        return render_single_column(entries, opts);
+    }
+
+    let mut max_len: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        let len: Int = string_len(entry.name);
+        if len > max_len {
+            max_len = len;
+        }
+        i = i + 1;
+    }
+
+    let col_width: Int = max_len + 3;
+    let num_cols: Int = term_width / col_width;
+    if num_cols <= 1 {
+        return render_single_column(entries, opts);
+    }
+
+    let mut output: String = "";
+    i = 0;
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        output = string_concat(output, string_pad_right(entry.name, col_width));
+        if (i + 1) % num_cols == 0 {
+            output = string_concat(output, "\n");
+        }
+        i = i + 1;
+    }
+
+    if n % num_cols != 0 {
+        output = string_concat(output, "\n");
+    }
+
+    return output;
+}
+
+fn render_single_column(entries: List[DirEntry], opts: LsOpts) -> String {
+    let mut output: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        output = string_concat(output, entry.name);
+        output = string_concat(output, "\n");
+        i = i + 1;
+    }
+    return output;
+}

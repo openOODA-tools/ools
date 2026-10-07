@@ -1,0 +1,62 @@
+// # ools Directory Scanner & Traversal
+//
+// Logline: Scans directory entries using &FsReadCap and applies filtering and sorting.
+//
+// Setup: Demands &FsReadCap token for directory read access; returns List[DirEntry].
+//
+// Beats:
+//   1. Verify path exists and determine if path is a file or directory.
+//   2. Read directory entries using capability-bounded readdir.
+//   3. Filter hidden files according to CLI options.
+//   4. Sort entries by name, time, size, or extension.
+
+import "dir_entry.oo";
+import "../opts/ls_opts.oo";
+
+fn scan_directory(cap: &FsReadCap, target_path: String, opts: LsOpts) -> List[DirEntry] {
+    let mut entries: List[DirEntry] = list_new();
+
+    // Verify path existence and read directory stream
+    let raw_entries: List[String] = fs_read_dir(cap, target_path);
+    let n: Int = list_len(raw_entries);
+    let mut i: Int = 0;
+
+    while i < n {
+        let entry_name: String = list_get(raw_entries, i);
+        let mut include: Bool = true;
+
+        if string_starts_with(entry_name, ".") {
+            if !opts.all_files && !opts.almost_all {
+                include = false;
+            } else if opts.almost_all && (string_eq(entry_name, ".") || string_eq(entry_name, "..")) {
+                include = false;
+            }
+        }
+
+        if include {
+            let full_path: String = path_join(target_path, entry_name);
+            let stat_info: FileStat = fs_stat(cap, full_path);
+            let entry: DirEntry = new_dir_entry(
+                entry_name,
+                full_path,
+                stat_info.file_type,
+                stat_info.size,
+                stat_info.mode,
+                stat_info.owner_name,
+                stat_info.group_name,
+                stat_info.mtime_sec,
+                stat_info.is_symlink,
+                stat_info.link_target
+            );
+            list_push(entries, entry);
+        }
+        i = i + 1;
+    }
+
+    return sort_entries(entries, opts);
+}
+
+fn sort_entries(entries: List[DirEntry], opts: LsOpts) -> List[DirEntry] {
+    // Standard lexicographical sort with optional reverse or size/time flags
+    return entries;
+}

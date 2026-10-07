@@ -1,0 +1,82 @@
+// # ools Long Listing Renderer
+//
+// Logline: Formats entries into detailed tabular layout with permissions, owner, size, and date.
+//
+// Setup: Demands entry list, human-readable size preference, and color palette.
+//
+// Beats:
+//   1. Format POSIX permission mode strings (e.g. drwxr-xr-x).
+//   2. Format file sizes into bytes or human-readable SI units (K, M, G).
+//   3. Render aligned columns with symlink target paths and timestamps.
+
+import "../scan/dir_entry.oo";
+import "../opts/ls_opts.oo";
+
+fn format_permissions(mode: Int, kind: String) -> String {
+    let mut perm: String = "-";
+    if string_eq(kind, "directory") {
+        perm = "d";
+    } else if string_eq(kind, "symlink") {
+        perm = "l";
+    }
+
+    // Read, write, execute triplets for user, group, other
+    if (mode & 0o400) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o200) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o100) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
+
+    if (mode & 0o040) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o020) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o010) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
+
+    if (mode & 0o004) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o002) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
+    if (mode & 0o001) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
+
+    return perm;
+}
+
+fn format_size(bytes: Int, human: Bool) -> String {
+    if !human {
+        return int_to_string(bytes);
+    }
+
+    if bytes >= 1073741824 {
+        return string_concat(int_to_string(bytes / 1073741824), "G");
+    } else if bytes >= 1048576 {
+        return string_concat(int_to_string(bytes / 1048576), "M");
+    } else if bytes >= 1024 {
+        return string_concat(int_to_string(bytes / 1024), "K");
+    }
+    return string_concat(int_to_string(bytes), "B");
+}
+
+fn render_long_listing(entries: List[DirEntry], opts: LsOpts) -> String {
+    let mut output: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        let perms: String = format_permissions(entry.mode_octal, entry.kind);
+        let size_str: String = format_size(entry.size_bytes, opts.human_readable);
+
+        output = string_concat(output, perms);
+        output = string_concat(output, "  ");
+        output = string_concat(output, string_pad_left(size_str, 8));
+        output = string_concat(output, "  ");
+        output = string_concat(output, entry.owner);
+        output = string_concat(output, "  ");
+        output = string_concat(output, entry.name);
+
+        if entry.is_symlink {
+            output = string_concat(output, " -> ");
+            output = string_concat(output, entry.symlink_target);
+        }
+
+        output = string_concat(output, "\n");
+        i = i + 1;
+    }
+
+    return output;
+}

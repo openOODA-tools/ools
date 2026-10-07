@@ -1,0 +1,17 @@
+// # ools Root Anchor
+//
+// Logline: Top-level anchor re-exporting options, scanning, classification, and render subsystems.
+//
+// Setup: Pure shim re-exporting all ools subsystem anchors.
+//
+// Beats:
+//   1. Re-export options parsing subsystem.
+//   2. Re-export directory scanning and entry representation.
+//   3. Re-export file classification and render subsystems.
+//   4. Re-export MCP IPC subsystem.
+
+import "opts/anchor.oo";
+import "scan/anchor.oo";
+import "classify/anchor.oo";
+import "render/anchor.oo";
+import "ipc/anchor.oo";

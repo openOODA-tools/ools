@@ -1,0 +1,12 @@
+// # ools Render Anchor
+//
+// Logline: Re-exports terminal grid, column windowing, and detailed long-format rendering.
+//
+// Setup: Pure shim importing grid and long-format render engines.
+//
+// Beats:
+//   1. Re-export compact multi-column grid renderer.
+//   2. Re-export detailed long-listing renderer.
+
+import "render_grid.oo";
+import "render_long.oo";

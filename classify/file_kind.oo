@@ -1,0 +1,56 @@
+// # ools File Kind Classifier
+//
+// Logline: Determines semantic category of files based on extension, mode bits, and MIME.
+//
+// Setup: Pure classification function mapping filename and mode into categorical kind.
+//
+// Beats:
+//   1. Check special filesystem mode bits (directory, symlink, socket, pipe).
+//   2. Check executable permission bits.
+//   3. Inspect filename extension against known category tables.
+
+enum FileKind {
+    Directory,
+    RegularFile,
+    Executable,
+    Symlink,
+    BrokenSymlink,
+    Socket,
+    FifoPipe,
+    BlockDevice,
+    CharDevice,
+    Archive,
+    SourceCode,
+    Document,
+    Media
+}
+
+fn classify_entry(name: String, mode: Int, is_symlink: Bool, target_exists: Bool) -> FileKind {
+    if is_symlink {
+        if target_exists {
+            return FileKind::Symlink;
+        } else {
+            return FileKind::BrokenSymlink;
+        }
+    }
+
+    if (mode & 0o170000) == 0o040000 {
+        return FileKind::Directory;
+    } else if (mode & 0o170000) == 0o140000 {
+        return FileKind::Socket;
+    } else if (mode & 0o170000) == 0o010000 {
+        return FileKind::FifoPipe;
+    } else if (mode & 0o111) != 0 {
+        return FileKind::Executable;
+    }
+
+    if string_ends_with(name, ".tar") || string_ends_with(name, ".tar.gz") || string_ends_with(name, ".tar.zst") || string_ends_with(name, ".zip") {
+        return FileKind::Archive;
+    } else if string_ends_with(name, ".oo") || string_ends_with(name, ".rs") || string_ends_with(name, ".c") || string_ends_with(name, ".py") {
+        return FileKind::SourceCode;
+    } else if string_ends_with(name, ".md") || string_ends_with(name, ".txt") || string_ends_with(name, ".pdf") {
+        return FileKind::Document;
+    }
+
+    return FileKind::RegularFile;
+}

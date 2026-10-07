@@ -1,0 +1,14 @@
+Source: ools
+Section: utils
+Priority: optional
+Maintainer: openOODA-tools <ops@openooda.org>
+Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13)
+
+Package: ools
+Architecture: amd64
+Depends: libc6
+Description: Sovereign directory lister and metadata classifier
+ An ls/eza replacement written in pure openOODA, featuring
+ negative-trust capability security, file kind classification,
+ oote theme palettes, and an MCP stdio surface.

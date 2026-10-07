@@ -1,0 +1,104 @@
+// # ools Options Definition & CLI Parser
+//
+// Logline: Defines command-line options and parses raw CLI argv into configuration state.
+//
+// Setup: Demands pure input strings; produces immutable LsOpts configuration struct.
+//
+// Beats:
+//   1. Define LsOpts structure representing listing configuration and flags.
+//   2. Initialize default options configuration.
+//   3. Parse POSIX flags and positional path arguments.
+
+struct LsOpts {
+    long_format: Bool,
+    all_files: Bool,
+    almost_all: Bool,
+    human_readable: Bool,
+    classify: Bool,
+    sort_time: Bool,
+    sort_size: Bool,
+    reverse: Bool,
+    recursive: Bool,
+    one_per_line: Bool,
+    directory_only: Bool,
+    color_mode: String,
+    theme_name: String,
+    json_mode: Bool,
+    mcp_mode: Bool,
+    show_help: Bool,
+    show_version: Bool,
+    paths: List[String]
+}
+
+fn default_opts() -> LsOpts {
+    return LsOpts {
+        long_format: false,
+        all_files: false,
+        almost_all: false,
+        human_readable: false,
+        classify: false,
+        sort_time: false,
+        sort_size: false,
+        reverse: false,
+        recursive: false,
+        one_per_line: false,
+        directory_only: false,
+        color_mode: "auto",
+        theme_name: "default",
+        json_mode: false,
+        mcp_mode: false,
+        show_help: false,
+        show_version: false,
+        paths: list_new()
+    };
+}
+
+fn parse_cli_args(args: List[String]) -> LsOpts {
+    let mut opts: LsOpts = default_opts();
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+
+    while i < n {
+        let arg: String = list_get(args, i);
+        if string_eq(arg, "-h") || string_eq(arg, "--help") {
+            opts.show_help = true;
+        } else if string_eq(arg, "-v") || string_eq(arg, "--version") {
+            opts.show_version = true;
+        } else if string_eq(arg, "--mcp") {
+            opts.mcp_mode = true;
+        } else if string_eq(arg, "--json") {
+            opts.json_mode = true;
+        } else if string_eq(arg, "-l") {
+            opts.long_format = true;
+        } else if string_eq(arg, "-a") || string_eq(arg, "--all") {
+            opts.all_files = true;
+        } else if string_eq(arg, "-A") || string_eq(arg, "--almost-all") {
+            opts.almost_all = true;
+        } else if string_eq(arg, "-F") || string_eq(arg, "--classify") {
+            opts.classify = true;
+        } else if string_eq(arg, "-t") {
+            opts.sort_time = true;
+        } else if string_eq(arg, "-S") {
+            opts.sort_size = true;
+        } else if string_eq(arg, "-r") || string_eq(arg, "--reverse") {
+            opts.reverse = true;
+        } else if string_eq(arg, "-R") || string_eq(arg, "--recursive") {
+            opts.recursive = true;
+        } else if string_eq(arg, "-1") {
+            opts.one_per_line = true;
+        } else if string_eq(arg, "-d") || string_eq(arg, "--directory") {
+            opts.directory_only = true;
+        } else if string_starts_with(arg, "--theme=") {
+            opts.theme_name = string_substr(arg, 8, string_len(arg) - 8);
+        } else if !string_starts_with(arg, "-") {
+            list_push(opts.paths, arg);
+        }
+        i = i + 1;
+    }
+
+    if list_len(opts.paths) == 0 {
+        list_push(opts.paths, ".");
+    }
+
+    return opts;
+}
