@@ -1,12 +1,12 @@
-// # ools Classify Anchor
+// # ools Classification Anchor
 //
-// Logline: Re-exports file classification and glyph/color mapping subsystems.
+// Logline: Re-exports file kind classifier and icon mapping modules.
 //
-// Setup: Pure shim re-exporting file kind and icon mapping modules.
+// Setup: Pure shim re-exporting classification subsystem.
 //
 // Beats:
-//   1. Re-export file classification types.
-//   2. Re-export glyph and icon mapping tables.
+//   1. Re-export file kind classifier.
+//   2. Re-export glyph and icon mapping.
 
-import "file_kind.oo";
-import "icon_map.oo";
+import "classify/file_kind.oo";
+import "classify/icon_map.oo";

@@ -7,9 +7,9 @@
 // Beats:
 //   1. Define DirEntry structure holding metadata attributes.
 //   2. Provide constructor helper for instantiating directory entries.
-//   3. Implement comparator helper for sorting entries.
+//   3. Determine entry hidden status and construct valid records.
 
-struct DirEntry {
+pub type DirEntry = struct {
     name: String,
     path: String,
     kind: String,
@@ -21,9 +21,9 @@ struct DirEntry {
     is_symlink: Bool,
     symlink_target: String,
     is_hidden: Bool
-}
+};
 
-fn new_dir_entry(
+pub fn new_dir_entry(
     name: String,
     path: String,
     kind: String,
@@ -35,7 +35,7 @@ fn new_dir_entry(
     is_link: Bool,
     target: String
 ) -> DirEntry {
-    let hidden: Bool = string_starts_with(name, ".") && !string_eq(name, ".") && !string_eq(name, "..");
+    let hidden: Bool = chars_len(name) > 1 && char_at(name, 0) == ".";
     return DirEntry {
         name: name,
         path: path,
@@ -49,13 +49,4 @@ fn new_dir_entry(
         symlink_target: target,
         is_hidden: hidden
     };
-}
-
-fn compare_entries_by_name(a: DirEntry, b: DirEntry) -> Int {
-    if string_less(a.name, b.name) {
-        return -1;
-    } else if string_eq(a.name, b.name) {
-        return 0;
-    }
-    return 1;
 }

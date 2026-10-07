@@ -7,65 +7,86 @@
 // Beats:
 //   1. Calculate maximum entry name length and compute column widths.
 //   2. Determine number of rows and columns that fit within terminal width.
-//   3. Render entries into horizontal or vertical multi-column layout with colors.
+//   3. Render entries into horizontal or vertical multi-column layout.
 
-import "../scan/dir_entry.oo";
-import "../opts/ls_opts.oo";
+import "scan/dir_entry.oo";
+import "opts/ls_opts.oo";
+import "classify/icon_map.oo";
+import "render/render_theme.oo";
 
-fn render_grid(entries: List[DirEntry], term_width: Int, opts: LsOpts) -> String {
-    let n: Int = list_len(entries);
-    if n == 0 {
-        return "";
+fn pad_right(s: String, width: Int) -> String {
+    let len: Int = chars_len(s);
+    if len >= width { return s; }
+    let mut out: String = s;
+    let mut i: Int = len;
+    while i < width {
+        out = out + " ";
+        i = i + 1;
     }
+    return out;
+}
 
+pub fn render_single_column(entries: List[DirEntry], opts: LsOpts, use_color: Bool) -> String {
+    let mut output: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        let mut disp: String = style_entry_name(entry.name, entry.kind, use_color);
+        if opts.classify {
+            disp = disp + get_classify_suffix(entry.kind);
+        }
+        output = output + disp + "\n";
+        i = i + 1;
+    }
+    return output;
+}
+
+pub fn render_grid(entries: List[DirEntry], term_width: Int, opts: LsOpts, use_color: Bool) -> String {
+    let n: Int = list_len(entries);
+    if n == 0 { return ""; }
     if opts.one_per_line || term_width < 40 {
-        return render_single_column(entries, opts);
+        return render_single_column(entries, opts, use_color);
     }
 
     let mut max_len: Int = 0;
     let mut i: Int = 0;
     while i < n {
         let entry: DirEntry = list_get(entries, i);
-        let len: Int = string_len(entry.name);
-        if len > max_len {
-            max_len = len;
-        }
+        let mut len: Int = chars_len(entry.name);
+        if opts.classify { len = len + 1; }
+        if len > max_len { max_len = len; }
         i = i + 1;
     }
 
     let col_width: Int = max_len + 3;
     let num_cols: Int = term_width / col_width;
     if num_cols <= 1 {
-        return render_single_column(entries, opts);
+        return render_single_column(entries, opts, use_color);
     }
 
     let mut output: String = "";
     i = 0;
     while i < n {
         let entry: DirEntry = list_get(entries, i);
-        output = string_concat(output, string_pad_right(entry.name, col_width));
+        let mut plain: String = entry.name;
+        if opts.classify {
+            plain = plain + get_classify_suffix(entry.kind);
+        }
+        let styled: String = style_entry_name(plain, entry.kind, use_color);
+        let padded: String = if (i + 1) % num_cols == 0 || i + 1 == n {
+            styled
+        } else {
+            styled + pad_right("", col_width - chars_len(plain))
+        };
+        output = output + padded;
         if (i + 1) % num_cols == 0 {
-            output = string_concat(output, "\n");
+            output = output + "\n";
         }
         i = i + 1;
     }
-
     if n % num_cols != 0 {
-        output = string_concat(output, "\n");
-    }
-
-    return output;
-}
-
-fn render_single_column(entries: List[DirEntry], opts: LsOpts) -> String {
-    let mut output: String = "";
-    let n: Int = list_len(entries);
-    let mut i: Int = 0;
-    while i < n {
-        let entry: DirEntry = list_get(entries, i);
-        output = string_concat(output, entry.name);
-        output = string_concat(output, "\n");
-        i = i + 1;
+        output = output + "\n";
     }
     return output;
 }

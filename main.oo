@@ -11,13 +11,15 @@
 
 import "opts/anchor.oo";
 import "scan/anchor.oo";
+import "classify/anchor.oo";
 import "render/anchor.oo";
 import "ipc/anchor.oo";
 
 fn render_help() -> String {
-    return "ools 0.1.0 (openOODA sovereign directory lister)\n"
+    return "ools 0.2.0 (openOODA sovereign directory lister)\n"
         + "usage: ools [options] [FILE]...\n\n"
-        + "List information about the FILEs (the current directory by default).\n\n"
+        + "List information about the FILEs (the current directory by default).\n"
+        + "Sort entries alphabetically if neither -t nor -S is specified.\n\n"
         + "Options:\n"
         + "  -l                   use a long listing format with permissions and size\n"
         + "  -a, --all            do not ignore entries starting with .\n"
@@ -35,15 +37,17 @@ fn render_help() -> String {
         + "      --json           output entries formatted as JSON Lines\n"
         + "      --mcp            run as Model Context Protocol stdio server\n"
         + "  -h, --help           display this help and exit\n"
-        + "  -v, --version        output version information and exit\n";
+        + "  -v, -V, --version    output version information and exit\n";
 }
 
-fn render_version() -> String {
-    return "ools 0.1.0 (openOODA sovereign directory lister)\n";
-}
-
-fn main(cap_fs: &FsReadCap, cap_env: &EnvCap, args: List[String]) -> Int {
+pub fn main(cap_fs: &FsReadCap, cap_env: &EnvCap, args: List[String]) -> Int {
     let opts: LsOpts = parse_cli_args(args);
+
+    if chars_len(opts.error_msg) > 0 {
+        println("ools: " + opts.error_msg);
+        println("Try 'ools --help' for more information.");
+        return 2;
+    }
 
     if opts.show_help {
         print(render_help());
@@ -51,7 +55,7 @@ fn main(cap_fs: &FsReadCap, cap_env: &EnvCap, args: List[String]) -> Int {
     }
 
     if opts.show_version {
-        print(render_version());
+        println("ools 0.2.0 (openOODA sovereign directory lister)");
         return 0;
     }
 
@@ -59,21 +63,35 @@ fn main(cap_fs: &FsReadCap, cap_env: &EnvCap, args: List[String]) -> Int {
         return run_mcp_server(cap_fs);
     }
 
-    let term_width: Int = env_get_int(cap_env, "COLUMNS", 80);
+    let use_color: Bool = should_enable_colors(cap_env, opts.color_mode);
+    let term_width: Int = 80;
     let num_paths: Int = list_len(opts.paths);
+    let mut exit_status: Int = 0;
     let mut i: Int = 0;
 
     while i < num_paths {
         let p: String = list_get(opts.paths, i);
-        let entries: List[DirEntry] = scan_directory(cap_fs, p, opts);
-
-        if opts.long_format {
-            print(render_long_listing(entries, opts));
+        if !path_exists(cap_fs, p) {
+            println("ools: cannot access '" + p + "': No such file or directory");
+            exit_status = 2;
         } else {
-            print(render_grid(entries, term_width, opts));
+            if num_paths > 1 && !opts.json_mode {
+                println(p + ":");
+            }
+            let entries: List[DirEntry] = scan_directory(cap_fs, p, opts);
+            if opts.json_mode {
+                print(render_entries_json_lines(entries));
+            } else if opts.long_format {
+                print(render_long_listing(entries, opts, use_color));
+            } else {
+                print(render_grid(entries, term_width, opts, use_color));
+            }
+            if num_paths > 1 && i + 1 < num_paths && !opts.json_mode {
+                println("");
+            }
         }
         i = i + 1;
     }
 
-    return 0;
+    return exit_status;
 }

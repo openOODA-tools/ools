@@ -1,12 +1,16 @@
-// # ools Scan Anchor
+// # ools Scanner Anchor
 //
-// Logline: Re-exports directory scanning and file entry data structures.
+// Logline: Re-exports directory scanning, stat probing, and entry representations.
 //
-// Setup: Pure shim importing directory entry and scanner modules.
+// Setup: Pure shim re-exporting scanner subsystem.
 //
 // Beats:
-//   1. Re-export directory entry representation.
-//   2. Re-export recursive directory walker.
+//   1. Re-export directory entry representation and constructor.
+//   2. Re-export file stat inspection and stamp parsing.
+//   3. Re-export directory entry sorting.
+//   4. Re-export directory walking and traversal.
 
-import "dir_entry.oo";
-import "walk_dir.oo";
+import "scan/dir_entry.oo";
+import "scan/file_stat.oo";
+import "scan/sort_entries.oo";
+import "scan/walk_dir.oo";

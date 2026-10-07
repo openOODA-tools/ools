@@ -5,6 +5,10 @@
 // Setup: Pure shim re-exporting the MCP stdio server subsystem.
 //
 // Beats:
-//   1. Re-export MCP stdio server entry point.
+//   1. Re-export JSON field parser and string escaper.
+//   2. Re-export MCP request dispatcher.
+//   3. Re-export MCP stdio server entry point.
 
-import "mcp_server.oo";
+import "ipc/json_field.oo";
+import "ipc/dispatch.oo";
+import "ipc/mcp_server.oo";

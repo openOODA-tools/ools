@@ -1,41 +1,48 @@
 // # ools Icon and Glyph Mapping
 //
-// Logline: Maps semantic file kinds and extensions to Unicode and Nerd Font glyphs.
+// Logline: Maps semantic file kinds and extensions to Unicode glyphs and classify indicators.
 //
 // Setup: Pure string mapping function returning appropriate prefix icon for rendering.
 //
 // Beats:
 //   1. Check special file types and assign domain glyphs.
 //   2. Check extension-specific associations for developer ergonomics.
-//   3. Fall back to clean generic document/file indicators.
+//   3. Provide classify suffix indicator flags.
 
-import "file_kind.oo";
-
-fn get_kind_icon(kind: FileKind) -> String {
-    match kind {
-        FileKind::Directory => return "📁",
-        FileKind::Executable => return "⚙️",
-        FileKind::Symlink => return "🔗",
-        FileKind::BrokenSymlink => return "⚠️",
-        FileKind::Socket => return "🔌",
-        FileKind::FifoPipe => return "🚰",
-        FileKind::BlockDevice => return "💾",
-        FileKind::CharDevice => return "📟",
-        FileKind::Archive => return "📦",
-        FileKind::SourceCode => return "📄",
-        FileKind::Document => return "📝",
-        FileKind::Media => return "🎬",
-        FileKind::RegularFile => return "  "
+pub fn get_kind_icon(kind: String) -> String {
+    if kind == "directory" {
+        return "📁";
     }
+    if kind == "executable" {
+        return "⚙️";
+    }
+    if kind == "symlink" {
+        return "🔗";
+    }
+    if kind == "archive" {
+        return "📦";
+    }
+    if kind == "source" {
+        return "📄";
+    }
+    if kind == "document" {
+        return "📝";
+    }
+    if kind == "media" {
+        return "🎬";
+    }
+    return "  ";
 }
 
-fn get_classify_suffix(kind: FileKind) -> String {
-    match kind {
-        FileKind::Directory => return "/",
-        FileKind::Executable => return "*",
-        FileKind::Symlink => return "@",
-        FileKind::Socket => return "=",
-        FileKind::FifoPipe => return "|",
-        _ => return ""
+pub fn get_classify_suffix(kind: String) -> String {
+    if kind == "directory" {
+        return "/";
     }
+    if kind == "executable" {
+        return "*";
+    }
+    if kind == "symlink" {
+        return "@";
+    }
+    return "";
 }

@@ -2,55 +2,40 @@
 //
 // Logline: Determines semantic category of files based on extension, mode bits, and MIME.
 //
-// Setup: Pure classification function mapping filename and mode into categorical kind.
+// Setup: Pure classification function mapping filename and status into categorical kind string.
 //
 // Beats:
-//   1. Check special filesystem mode bits (directory, symlink, socket, pipe).
-//   2. Check executable permission bits.
+//   1. Check special filesystem node types (directory, symlink).
+//   2. Check archive formats and compressed archives.
 //   3. Inspect filename extension against known category tables.
 
-enum FileKind {
-    Directory,
-    RegularFile,
-    Executable,
-    Symlink,
-    BrokenSymlink,
-    Socket,
-    FifoPipe,
-    BlockDevice,
-    CharDevice,
-    Archive,
-    SourceCode,
-    Document,
-    Media
-}
-
-fn classify_entry(name: String, mode: Int, is_symlink: Bool, target_exists: Bool) -> FileKind {
+pub fn classify_entry_kind(name: String, is_dir: Bool, is_symlink: Bool) -> String {
     if is_symlink {
-        if target_exists {
-            return FileKind::Symlink;
-        } else {
-            return FileKind::BrokenSymlink;
-        }
+        return "symlink";
+    }
+    if is_dir {
+        return "directory";
     }
 
-    if (mode & 0o170000) == 0o040000 {
-        return FileKind::Directory;
-    } else if (mode & 0o170000) == 0o140000 {
-        return FileKind::Socket;
-    } else if (mode & 0o170000) == 0o010000 {
-        return FileKind::FifoPipe;
-    } else if (mode & 0o111) != 0 {
-        return FileKind::Executable;
+    if str_ends_with(name, ".tar") || str_ends_with(name, ".tar.gz") || str_ends_with(name, ".tar.zst") || str_ends_with(name, ".tgz") || str_ends_with(name, ".zip") || str_ends_with(name, ".gz") || str_ends_with(name, ".zst") || str_ends_with(name, ".pkg.tar.zst") {
+        return "archive";
     }
 
-    if string_ends_with(name, ".tar") || string_ends_with(name, ".tar.gz") || string_ends_with(name, ".tar.zst") || string_ends_with(name, ".zip") {
-        return FileKind::Archive;
-    } else if string_ends_with(name, ".oo") || string_ends_with(name, ".rs") || string_ends_with(name, ".c") || string_ends_with(name, ".py") {
-        return FileKind::SourceCode;
-    } else if string_ends_with(name, ".md") || string_ends_with(name, ".txt") || string_ends_with(name, ".pdf") {
-        return FileKind::Document;
+    if str_ends_with(name, ".oo") || str_ends_with(name, ".oot") || str_ends_with(name, ".rs") || str_ends_with(name, ".c") || str_ends_with(name, ".h") || str_ends_with(name, ".cpp") || str_ends_with(name, ".go") || str_ends_with(name, ".py") || str_ends_with(name, ".js") || str_ends_with(name, ".ts") || str_ends_with(name, ".json") || str_ends_with(name, ".toml") || str_ends_with(name, ".yaml") || str_ends_with(name, ".yml") || str_ends_with(name, ".sh") {
+        return "source";
     }
 
-    return FileKind::RegularFile;
+    if str_ends_with(name, ".md") || str_ends_with(name, ".txt") || str_ends_with(name, ".pdf") || str_ends_with(name, ".csv") || str_ends_with(name, ".log") {
+        return "document";
+    }
+
+    if str_ends_with(name, ".png") || str_ends_with(name, ".jpg") || str_ends_with(name, ".jpeg") || str_ends_with(name, ".gif") || str_ends_with(name, ".svg") || str_ends_with(name, ".webp") || str_ends_with(name, ".mp4") || str_ends_with(name, ".mp3") {
+        return "media";
+    }
+
+    if str_ends_with(name, ".bin") || str_ends_with(name, ".so") || str_ends_with(name, ".o") || str_ends_with(name, ".a") {
+        return "executable";
+    }
+
+    return "regular";
 }

@@ -1,0 +1,14 @@
+ools (0.2.0-1) stable; urgency=low
+
+  * MCP stdio server mode (--mcp) with list_directory and stat_entry tools.
+  * Multi-column grid rendering and detailed long-format tables.
+  * Zero ambient authority capability model bounded by &FsReadCap and &EnvCap.
+  * Companion ools-uninstall CLI and clean relinquishment.
+
+ -- openOODA-tools <ops@openooda.org>  Wed, 07 Oct 2026 12:00:00 -1000
+
+ools (0.1.0-1) stable; urgency=low
+
+  * Initial release: Sovereign directory lister and metadata classifier.
+
+ -- openOODA-tools <ops@openooda.org>  Tue, 06 Oct 2026 18:00:00 -1000

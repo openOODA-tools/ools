@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: ools
+Source: https://github.com/openOODA-tools/ools
+
+Files: *
+Copyright: 2026 openOODA-tools <ops@openooda.org>
+License: Apache-2.0

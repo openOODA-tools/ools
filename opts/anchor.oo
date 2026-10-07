@@ -7,4 +7,4 @@
 // Beats:
 //   1. Re-export ls options module.
 
-import "ls_opts.oo";
+import "opts/ls_opts.oo";

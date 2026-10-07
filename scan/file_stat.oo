@@ -1,0 +1,79 @@
+// # ools File Metadata and Stat Inspection
+//
+// Logline: Probes file stamps, sizes, directory status, and resolves node metadata.
+//
+// Setup: Demands &FsReadCap for capability-bounded inspection via sealed runtime primitives.
+//
+// Beats:
+//   1. Parse size and mtime epoch from colon-delimited oo_file_stamp payloads.
+//   2. Probe directory and symlink characteristics under FsReadCap.
+//   3. Construct unified DirEntry metadata records.
+
+import "scan/dir_entry.oo";
+import "classify/file_kind.oo";
+import "std/fs/os/fs.oo";
+
+pub fn parse_stat_int(s: String) -> Int {
+    let tr: String = str_trim(s);
+    let n: Int = chars_len(tr);
+    if n == 0 { return 0; }
+    let mut acc: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let b: Int = byte_at(tr, i);
+        if b >= 48 && b <= 57 {
+            acc = acc * 10 + (b - 48);
+        } else {
+            return acc;
+        }
+        i = i + 1;
+    }
+    return acc;
+}
+
+pub fn parse_stamp_size(stamp: String) -> Int {
+    let c1: Int = str_index_of(stamp, ":");
+    if c1 < 0 { return parse_stat_int(stamp); }
+    return parse_stat_int(str_slice(stamp, 0, c1));
+}
+
+pub fn parse_stamp_mtime(stamp: String) -> Int {
+    let c1: Int = str_index_of(stamp, ":");
+    if c1 < 0 { return 0; }
+    let rest: String = str_slice(stamp, c1 + 1, chars_len(stamp));
+    let c2: Int = str_index_of(rest, ":");
+    if c2 < 0 { return parse_stat_int(rest); }
+    return parse_stat_int(str_slice(rest, 0, c2));
+}
+
+pub fn probe_is_symlink(fs: &FsReadCap, path: String) -> Bool {
+    let link_sz: Int = fs_file_size(fs, path);
+    if link_sz < 0 { return false; }
+    let target_sz: Int = fs_file_size(fs, path + "/.");
+    if target_sz >= 0 && link_sz != target_sz {
+        return true;
+    }
+    return false;
+}
+
+pub fn stat_path_entry(fs: &FsReadCap, full_path: String, name: String) -> DirEntry {
+    let is_dir: Bool = fs_is_dir(fs, full_path);
+    let is_sym: Bool = probe_is_symlink(fs, full_path);
+    let stamp: String = oo_file_stamp(fs, full_path);
+    let sz: Int = parse_stamp_size(stamp);
+    let mtime: Int = parse_stamp_mtime(stamp);
+    let kind: String = classify_entry_kind(name, is_dir, is_sym);
+    let mode: Int = if is_dir { 493 } else { 420 };
+    return new_dir_entry(
+        name,
+        full_path,
+        kind,
+        sz,
+        mode,
+        "user",
+        "user",
+        mtime,
+        is_sym,
+        ""
+    );
+}

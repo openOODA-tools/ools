@@ -1,29 +1,81 @@
 // # ools Model Context Protocol Server
 //
-// Logline: Implements JSON-RPC 2.0 stdio server providing list_directory and stat_entry.
+// Logline: Speaks JSON-RPC 2.0 Model Context Protocol over stdio for LLM coding agents.
 //
-// Setup: Demands &FsReadCap for safe filesystem inspection and &SysCap for stdio streaming.
+// Setup: Demands &FsReadCap for safe filesystem inspection and stdio streaming.
 //
 // Beats:
-//   1. Read JSON-RPC requests from standard input.
-//   2. Dispatch tool calls: list_directory, stat_entry, and tools/list.
-//   3. Emit JSON-RPC responses over standard output.
+//   1. Handle initialize, ping, and initialized handshakes for protocol 2024-11-05.
+//   2. Advertise list_directory and stat_entry tools with JSON Schema definitions.
+//   3. Dispatch tools/call requests and return structured directory metadata.
 
-import "../scan/anchor.oo";
+import "ipc/json_field.oo";
+import "ipc/dispatch.oo";
 
-fn run_mcp_server(cap: &FsReadCap) -> Int {
-    // Announce MCP tools/list and wait for incoming agent tool requests
-    print_mcp_response(
-        "{\"jsonrpc\":\"2.0\",\"result\":{\"tools\":["
-        + "{\"name\":\"list_directory\",\"description\":\"List files in directory with metadata\"},"
-        + "{\"name\":\"stat_entry\",\"description\":\"Get detailed metadata for a specific path\"}"
-        + "]}}"
-    );
+pub fn handle_mcp_request(fs: &FsReadCap, req: String) -> String {
+    let method: String = json_field_string(req, "method");
+    let raw_id: String = json_field_raw(req, "id");
+    if chars_len(raw_id) == 0 {
+        return "";
+    }
+    let id: String = raw_id;
 
-    return 0;
+    if chars_len(method) == 0 {
+        return build_error(id, -32600, "invalid request");
+    }
+
+    if method == "initialize" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"ools\",\"version\":\"0.2.0\"}}}";
+    }
+    if method == "notifications/initialized" || method == "exit" {
+        return "";
+    }
+    if method == "ping" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{}}";
+    }
+    if method == "tools/list" {
+        return mcp_tools_list_payload(id);
+    }
+    if method == "tools/call" {
+        return handle_tool_call(fs, id, req);
+    }
+    if method == "shutdown" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":null}";
+    }
+    return build_error(id, -32601, "method not found: " + method);
 }
 
-fn print_mcp_response(payload: String) {
-    print(payload);
-    print("\n");
+pub fn run_mcp_server(fs: &FsReadCap) -> Int {
+    let mut buf: String = "";
+    let mut running: Bool = true;
+    while running {
+        let r: Result[String, String] = oo_read_stdin_chunk(fs, 100);
+        if !r.is_ok() {
+            running = false;
+        } else {
+            let chunk: String = match r { Ok(s) => s, Err(_) => "" };
+            if chars_len(chunk) > 0 {
+                buf = buf + chunk;
+                let mut nl_pos: Int = str_index_of(buf, "\n");
+                while nl_pos >= 0 {
+                    let line: String = str_slice(buf, 0, nl_pos);
+                    buf = str_slice(buf, nl_pos + 1, chars_len(buf));
+                    let trimmed: String = str_trim(line);
+                    if chars_len(trimmed) > 0 {
+                        let method: String = json_field_string(trimmed, "method");
+                        if method == "exit" {
+                            running = false;
+                            break;
+                        }
+                        let reply: String = handle_mcp_request(fs, trimmed);
+                        if chars_len(reply) > 0 {
+                            println(reply);
+                        }
+                    }
+                    nl_pos = str_index_of(buf, "\n");
+                }
+            }
+        }
+    }
+    return 0;
 }

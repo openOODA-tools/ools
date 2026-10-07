@@ -1,0 +1,56 @@
+// # ools JSON Renderer
+//
+// Logline: Serializes directory entries into JSON Lines and JSON array formats.
+//
+// Setup: Pure serialization functions for DirEntry records.
+//
+// Beats:
+//   1. Serialize single DirEntry into JSON object with escaped string fields.
+//   2. Serialize entry lists into JSON Lines formatted payload.
+//   3. Serialize entry lists into JSON array block.
+
+import "scan/dir_entry.oo";
+import "render/render_long.oo";
+import "ipc/json_field.oo";
+
+pub fn render_entry_json(entry: DirEntry) -> String {
+    let perms: String = format_mode_string(entry.mode_octal, entry.kind);
+    return "{"
+        + "\"name\":\"" + json_escape(entry.name) + "\","
+        + "\"path\":\"" + json_escape(entry.path) + "\","
+        + "\"kind\":\"" + json_escape(entry.kind) + "\","
+        + "\"size_bytes\":" + entry.size_bytes.to_string() + ","
+        + "\"permissions\":\"" + perms + "\","
+        + "\"owner\":\"" + json_escape(entry.owner) + "\","
+        + "\"group\":\"" + json_escape(entry.group) + "\","
+        + "\"modified_epoch\":" + entry.mod_time.to_string() + ","
+        + "\"is_symlink\":" + (if entry.is_symlink { "true" } else { "false" }) + ","
+        + "\"symlink_target\":\"" + json_escape(entry.symlink_target) + "\""
+        + "}";
+}
+
+pub fn render_entries_json_lines(entries: List[DirEntry]) -> String {
+    let mut out: String = "";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        let entry: DirEntry = list_get(entries, i);
+        out = out + render_entry_json(entry) + "\n";
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn render_entries_json_array(entries: List[DirEntry]) -> String {
+    let mut out: String = "[";
+    let n: Int = list_len(entries);
+    let mut i: Int = 0;
+    while i < n {
+        if i > 0 { out = out + ","; }
+        let entry: DirEntry = list_get(entries, i);
+        out = out + render_entry_json(entry);
+        i = i + 1;
+    }
+    out = out + "]";
+    return out;
+}

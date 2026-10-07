@@ -1,6 +1,6 @@
 // # ools Long Listing Renderer
 //
-// Logline: Formats entries into detailed tabular layout with permissions, owner, size, and date.
+// Logline: Formats entries into detailed tabular layout with permissions, size, and date.
 //
 // Setup: Demands entry list, human-readable size preference, and color palette.
 //
@@ -9,72 +9,73 @@
 //   2. Format file sizes into bytes or human-readable SI units (K, M, G).
 //   3. Render aligned columns with symlink target paths and timestamps.
 
-import "../scan/dir_entry.oo";
-import "../opts/ls_opts.oo";
+import "scan/dir_entry.oo";
+import "opts/ls_opts.oo";
+import "classify/icon_map.oo";
+import "render/render_theme.oo";
 
-fn format_permissions(mode: Int, kind: String) -> String {
-    let mut perm: String = "-";
-    if string_eq(kind, "directory") {
-        perm = "d";
-    } else if string_eq(kind, "symlink") {
-        perm = "l";
-    }
-
-    // Read, write, execute triplets for user, group, other
-    if (mode & 0o400) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o200) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o100) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
-
-    if (mode & 0o040) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o020) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o010) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
-
-    if (mode & 0o004) != 0 { perm = string_concat(perm, "r"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o002) != 0 { perm = string_concat(perm, "w"); } else { perm = string_concat(perm, "-"); }
-    if (mode & 0o001) != 0 { perm = string_concat(perm, "x"); } else { perm = string_concat(perm, "-"); }
-
-    return perm;
+pub fn format_mode_string(mode: Int, kind: String) -> String {
+    let prefix: String = if kind == "directory" { "d" } else if kind == "symlink" { "l" } else { "-" };
+    let ur: String = if (mode & 256) != 0 { "r" } else { "-" };
+    let uw: String = if (mode & 128) != 0 { "w" } else { "-" };
+    let ux: String = if (mode & 64) != 0 { "x" } else { "-" };
+    let gr: String = if (mode & 32) != 0 { "r" } else { "-" };
+    let gw: String = if (mode & 16) != 0 { "w" } else { "-" };
+    let gx: String = if (mode & 8) != 0 { "x" } else { "-" };
+    let or_b: String = if (mode & 4) != 0 { "r" } else { "-" };
+    let ow: String = if (mode & 2) != 0 { "w" } else { "-" };
+    let ox: String = if (mode & 1) != 0 { "x" } else { "-" };
+    return prefix + ur + uw + ux + gr + gw + gx + or_b + ow + ox;
 }
 
-fn format_size(bytes: Int, human: Bool) -> String {
-    if !human {
-        return int_to_string(bytes);
-    }
-
+pub fn format_size_human(bytes: Int, human: Bool) -> String {
+    if !human { return bytes.to_string(); }
     if bytes >= 1073741824 {
-        return string_concat(int_to_string(bytes / 1073741824), "G");
-    } else if bytes >= 1048576 {
-        return string_concat(int_to_string(bytes / 1048576), "M");
-    } else if bytes >= 1024 {
-        return string_concat(int_to_string(bytes / 1024), "K");
+        let g: Int = bytes / 1073741824;
+        return g.to_string() + "G";
     }
-    return string_concat(int_to_string(bytes), "B");
+    if bytes >= 1048576 {
+        let m: Int = bytes / 1048576;
+        return m.to_string() + "M";
+    }
+    if bytes >= 1024 {
+        let k: Int = bytes / 1024;
+        return k.to_string() + "K";
+    }
+    return bytes.to_string() + "B";
 }
 
-fn render_long_listing(entries: List[DirEntry], opts: LsOpts) -> String {
+fn pad_left(s: String, width: Int) -> String {
+    let len: Int = chars_len(s);
+    if len >= width { return s; }
+    let mut out: String = "";
+    let mut i: Int = len;
+    while i < width {
+        out = out + " ";
+        i = i + 1;
+    }
+    return out + s;
+}
+
+pub fn render_long_listing(entries: List[DirEntry], opts: LsOpts, use_color: Bool) -> String {
     let mut output: String = "";
     let n: Int = list_len(entries);
     let mut i: Int = 0;
 
     while i < n {
         let entry: DirEntry = list_get(entries, i);
-        let perms: String = format_permissions(entry.mode_octal, entry.kind);
-        let size_str: String = format_size(entry.size_bytes, opts.human_readable);
-
-        output = string_concat(output, perms);
-        output = string_concat(output, "  ");
-        output = string_concat(output, string_pad_left(size_str, 8));
-        output = string_concat(output, "  ");
-        output = string_concat(output, entry.owner);
-        output = string_concat(output, "  ");
-        output = string_concat(output, entry.name);
-
-        if entry.is_symlink {
-            output = string_concat(output, " -> ");
-            output = string_concat(output, entry.symlink_target);
+        let perms: String = format_mode_string(entry.mode_octal, entry.kind);
+        let size_str: String = format_size_human(entry.size_bytes, opts.human_readable);
+        let mut name_disp: String = style_entry_name(entry.name, entry.kind, use_color);
+        if opts.classify {
+            name_disp = name_disp + get_classify_suffix(entry.kind);
         }
 
-        output = string_concat(output, "\n");
+        output = output + perms + "  " + pad_left(size_str, 8) + "  " + entry.owner + "  " + name_disp;
+        if entry.is_symlink && chars_len(entry.symlink_target) > 0 {
+            output = output + " -> " + entry.symlink_target;
+        }
+        output = output + "\n";
         i = i + 1;
     }
 

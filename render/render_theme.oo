@@ -1,0 +1,51 @@
+// # ools Theme & Color Styler
+//
+// Logline: Formats terminal strings with ANSI styling according to oote conventions.
+//
+// Setup: Demands &EnvCap to inspect NO_COLOR environment variable.
+//
+// Beats:
+//   1. Resolve color activation based on CLI preferences and terminal environment.
+//   2. Provide color formatting wrappers for directories, executables, and symlinks.
+//   3. Degrade cleanly to plain text when colors are disabled.
+
+import "std/fs/process/env.oo";
+
+pub fn should_enable_colors(env: &EnvCap, color_mode: String) -> Bool {
+    if color_mode == "never" { return false; }
+    if color_mode == "always" { return true; }
+    let no_col: Result[String, String] = env_get(env, "NO_COLOR");
+    if no_col.is_ok() {
+        let v: String = match no_col { Ok(s) => s, Err(_) => "" };
+        if chars_len(v) > 0 { return false; }
+    }
+    return true;
+}
+
+fn esc_code(code: String, text: String) -> String {
+    let esc: String = bytes_to_str(bytes_push(bytes_new(), 27));
+    return esc + "[" + code + "m" + text + esc + "[0m";
+}
+
+pub fn style_entry_name(name: String, kind: String, use_color: Bool) -> String {
+    if !use_color { return name; }
+    if kind == "directory" {
+        return esc_code("1;34", name);
+    }
+    if kind == "executable" {
+        return esc_code("1;32", name);
+    }
+    if kind == "symlink" {
+        return esc_code("1;36", name);
+    }
+    if kind == "archive" {
+        return esc_code("1;31", name);
+    }
+    if kind == "source" {
+        return esc_code("0;33", name);
+    }
+    if kind == "document" {
+        return esc_code("0;37", name);
+    }
+    return name;
+}

@@ -1,0 +1,84 @@
+// # ools MCP Request Dispatcher
+//
+// Logline: Dispatches incoming Model Context Protocol tool requests for directory and stat queries.
+//
+// Setup: Demands &FsReadCap for safe filesystem inspection and DirEntry serializers.
+//
+// Beats:
+//   1. Construct JSON-RPC error responses with standard error codes.
+//   2. Define JSON Schema catalogue for list_directory and stat_entry tools.
+//   3. Dispatch tools/call invocations to directory scanner and file stat inspectors.
+
+import "scan/dir_entry.oo";
+import "scan/file_stat.oo";
+import "scan/walk_dir.oo";
+import "opts/ls_opts.oo";
+import "render/render_long.oo";
+import "render/render_grid.oo";
+import "render/render_json.oo";
+import "ipc/json_field.oo";
+
+pub fn build_error(id: String, code: Int, msg: String) -> String {
+    let safe_id: String = if chars_len(id) == 0 { "null" } else { id };
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"error\":{\"code\":" + code.to_string() + ",\"message\":\"" + json_escape(msg) + "\"}}";
+}
+
+pub fn build_tool_result(id: String, text: String) -> String {
+    let safe_id: String = if chars_len(id) == 0 { "null" } else { id };
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + safe_id + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape(text) + "\"}]}}";
+}
+
+pub fn mcp_tools_list_payload(id: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id + ",\"result\":{\"tools\":["
+        + "{\"name\":\"list_directory\",\"description\":\"Safely lists directory entries with permissions, sizes, types, and formatted metadata.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Directory path to inspect (default '.')\"},\"all\":{\"type\":\"boolean\",\"description\":\"Include hidden files starting with dot\"},\"recursive\":{\"type\":\"boolean\",\"description\":\"Recursively list directory entries\"},\"sort_by\":{\"type\":\"string\",\"description\":\"Sort criterion: name, size, time, extension\"},\"reverse\":{\"type\":\"boolean\",\"description\":\"Reverse sort order\"},\"detail_level\":{\"type\":\"string\",\"description\":\"Output detail: compact, detailed, json\"}}}}"
+        + ","
+        + "{\"name\":\"stat_entry\",\"description\":\"Get detailed metadata, size, permissions, and timestamps for a specific path.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Target file or directory path\"}},\"required\":[\"path\"]}}"
+        + "]}}";
+}
+
+pub fn handle_tool_call(fs: &FsReadCap, id: String, req: String) -> String {
+    let params: String = json_field_raw(req, "params");
+    let tool_name: String = json_field_string(params, "name");
+    let args: String = json_field_raw(params, "arguments");
+
+    if tool_name == "list_directory" {
+        let path_arg: String = json_unescape(json_field_string(args, "path"));
+        let target_path: String = if chars_len(path_arg) == 0 { "." } else { path_arg };
+        if !path_exists(fs, target_path) {
+            return build_error(id, -32602, "directory not found: " + target_path);
+        }
+
+        let mut opts: LsOpts = default_opts();
+        opts.all_files = json_field_raw(args, "all") == "true";
+        opts.recursive = json_field_raw(args, "recursive") == "true";
+        opts.reverse = json_field_raw(args, "reverse") == "true";
+        let sort_by: String = json_field_string(args, "sort_by");
+        if sort_by == "size" { opts.sort_size = true; }
+        if sort_by == "time" { opts.sort_time = true; }
+        let detail: String = json_field_string(args, "detail_level");
+
+        let entries: List[DirEntry] = scan_directory(fs, target_path, opts);
+        if detail == "json" {
+            return build_tool_result(id, render_entries_json_array(entries));
+        }
+        if detail == "compact" {
+            return build_tool_result(id, render_single_column(entries, opts, false));
+        }
+        return build_tool_result(id, render_long_listing(entries, opts, false));
+    }
+
+    if tool_name == "stat_entry" {
+        let raw_path: String = json_field_string(args, "path");
+        if chars_len(raw_path) == 0 {
+            return build_error(id, -32602, "missing required argument: path");
+        }
+        let target_path: String = json_unescape(raw_path);
+        if !path_exists(fs, target_path) {
+            return build_error(id, -32602, "entry not found: " + target_path);
+        }
+        let entry: DirEntry = stat_path_entry(fs, target_path, target_path);
+        return build_tool_result(id, render_entry_json(entry));
+    }
+
+    return build_error(id, -32601, "unknown tool: " + tool_name);
+}

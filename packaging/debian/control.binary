@@ -1,0 +1,10 @@
+Package: ools
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign directory lister and metadata classifier
+ An ls/eza replacement written in pure openOODA, featuring
+ negative-trust capability security, file kind classification,
+ oote theme palettes, and an MCP stdio surface.

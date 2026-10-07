@@ -7,9 +7,9 @@
 // Beats:
 //   1. Define LsOpts structure representing listing configuration and flags.
 //   2. Initialize default options configuration.
-//   3. Parse POSIX flags and positional path arguments.
+//   3. Parse POSIX flags, combined short options, and positional path arguments.
 
-struct LsOpts {
+pub type LsOpts = struct {
     long_format: Bool,
     all_files: Bool,
     almost_all: Bool,
@@ -27,10 +27,11 @@ struct LsOpts {
     mcp_mode: Bool,
     show_help: Bool,
     show_version: Bool,
+    error_msg: String,
     paths: List[String]
-}
+};
 
-fn default_opts() -> LsOpts {
+pub fn default_opts() -> LsOpts {
     return LsOpts {
         long_format: false,
         all_files: false,
@@ -49,55 +50,120 @@ fn default_opts() -> LsOpts {
         mcp_mode: false,
         show_help: false,
         show_version: false,
+        error_msg: "",
         paths: list_new()
     };
 }
 
-fn parse_cli_args(args: List[String]) -> LsOpts {
+pub fn parse_cli_args(args: List[String]) -> LsOpts {
     let mut opts: LsOpts = default_opts();
     let n: Int = list_len(args);
     let mut i: Int = 0;
+    let mut end_of_opts: Bool = false;
 
     while i < n {
         let arg: String = list_get(args, i);
-        if string_eq(arg, "-h") || string_eq(arg, "--help") {
+        let arg_len: Int = chars_len(arg);
+
+        if end_of_opts {
+            opts.paths = list_push(opts.paths, arg);
+            i = i + 1;
+        } else if arg == "--" {
+            end_of_opts = true;
+            i = i + 1;
+        } else if arg == "--help" || arg == "-help" {
             opts.show_help = true;
-        } else if string_eq(arg, "-v") || string_eq(arg, "--version") {
+            i = i + 1;
+        } else if arg == "--version" {
             opts.show_version = true;
-        } else if string_eq(arg, "--mcp") {
+            i = i + 1;
+        } else if arg == "--mcp" {
             opts.mcp_mode = true;
-        } else if string_eq(arg, "--json") {
+            i = i + 1;
+        } else if arg == "--json" {
             opts.json_mode = true;
-        } else if string_eq(arg, "-l") {
-            opts.long_format = true;
-        } else if string_eq(arg, "-a") || string_eq(arg, "--all") {
+            i = i + 1;
+        } else if arg == "--all" {
             opts.all_files = true;
-        } else if string_eq(arg, "-A") || string_eq(arg, "--almost-all") {
+            i = i + 1;
+        } else if arg == "--almost-all" {
             opts.almost_all = true;
-        } else if string_eq(arg, "-F") || string_eq(arg, "--classify") {
+            i = i + 1;
+        } else if arg == "--human-readable" {
+            opts.human_readable = true;
+            i = i + 1;
+        } else if arg == "--classify" {
             opts.classify = true;
-        } else if string_eq(arg, "-t") {
-            opts.sort_time = true;
-        } else if string_eq(arg, "-S") {
-            opts.sort_size = true;
-        } else if string_eq(arg, "-r") || string_eq(arg, "--reverse") {
+            i = i + 1;
+        } else if arg == "--reverse" {
             opts.reverse = true;
-        } else if string_eq(arg, "-R") || string_eq(arg, "--recursive") {
+            i = i + 1;
+        } else if arg == "--recursive" {
             opts.recursive = true;
-        } else if string_eq(arg, "-1") {
-            opts.one_per_line = true;
-        } else if string_eq(arg, "-d") || string_eq(arg, "--directory") {
+            i = i + 1;
+        } else if arg == "--directory" {
             opts.directory_only = true;
-        } else if string_starts_with(arg, "--theme=") {
-            opts.theme_name = string_substr(arg, 8, string_len(arg) - 8);
-        } else if !string_starts_with(arg, "-") {
-            list_push(opts.paths, arg);
+            i = i + 1;
+        } else if arg == "--color" {
+            if i + 1 < n {
+                opts.color_mode = list_get(args, i + 1);
+                i = i + 2;
+            } else {
+                opts.color_mode = "always";
+                i = i + 1;
+            }
+        } else if str_starts_with(arg, "--color=") {
+            opts.color_mode = str_slice(arg, 8, arg_len);
+            i = i + 1;
+        } else if str_starts_with(arg, "--theme=") {
+            opts.theme_name = str_slice(arg, 8, arg_len);
+            i = i + 1;
+        } else if str_starts_with(arg, "--") {
+            opts.error_msg = "unrecognized option '" + arg + "'";
+            return opts;
+        } else if str_starts_with(arg, "-") && arg_len > 1 {
+            let mut k: Int = 1;
+            while k < arg_len {
+                let c: String = char_at(arg, k);
+                if c == "l" {
+                    opts.long_format = true;
+                } else if c == "a" {
+                    opts.all_files = true;
+                } else if c == "A" {
+                    opts.almost_all = true;
+                } else if c == "h" {
+                    opts.human_readable = true;
+                } else if c == "F" {
+                    opts.classify = true;
+                } else if c == "t" {
+                    opts.sort_time = true;
+                } else if c == "S" {
+                    opts.sort_size = true;
+                } else if c == "r" {
+                    opts.reverse = true;
+                } else if c == "R" {
+                    opts.recursive = true;
+                } else if c == "1" {
+                    opts.one_per_line = true;
+                } else if c == "d" {
+                    opts.directory_only = true;
+                } else if c == "v" || c == "V" {
+                    opts.show_version = true;
+                } else {
+                    opts.error_msg = "invalid option -- '" + c + "'";
+                    return opts;
+                }
+                k = k + 1;
+            }
+            i = i + 1;
+        } else {
+            opts.paths = list_push(opts.paths, arg);
+            i = i + 1;
         }
-        i = i + 1;
     }
 
     if list_len(opts.paths) == 0 {
-        list_push(opts.paths, ".");
+        opts.paths = list_push(opts.paths, ".");
     }
 
     return opts;

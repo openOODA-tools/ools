@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	@echo "skip: binary prebuilt by release pipeline"
+
+override_dh_auto_test:
+	@echo "skip: tests already ran in the build job"
+
+override_dh_auto_install:
+	install -d debian/ools/usr/bin
+	install -m 0755 ../dist/ools-linux-x86_64 debian/ools/usr/bin/ools
+	install -m 0755 ../uninstall.sh debian/ools/usr/bin/ools-uninstall
